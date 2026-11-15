@@ -1,0 +1,39 @@
+# fly.io deployment for the chandai-agent Proof Gatekeeper service.
+# Usage:
+#   fly apps create chandai-agent        # or pick your own name and update below
+#   fly secrets set AGENT_GAMES_HMAC_SECRET=... KURIER_API_KEY=...
+#   fly deploy
+# The agent must stay awake during rounds (17:30-03:30 WIB daily),
+# so auto-stop is disabled and one machine is always running.
+
+app = "chandai-agent"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  AGENT_PATH = "/agent"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    type = "http"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+# Persist the PROOF_REUSED seen-set across deploys/restarts:
+#   fly volumes create agent_data --size 1 --region sin
+# and set SEEN_STORE_PATH=/data/seen.json via fly secrets or [env].
+[[mounts]]
+  source = "agent_data"
+  destination = "/app/data"
